@@ -1,114 +1,21 @@
+# docker compose
 services:
-  # Service 1: RabbitMQ Message Broker
   rabbitmq:
     image: rabbitmq:3.9-management-alpine
     container_name: rabbitmq
     restart: always
     ports:
-      - "5672:5672"   # Cổng cho ứng dụng kết nối
-      - "15672:15672" # Cổng cho giao diện quản lý web
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq/
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=user
       - RABBITMQ_DEFAULT_PASS=password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # Service 2: MySQL Database
-  mysql-db:
-    image: mysql:8.0
-    container_name: mysql-db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: productiondb
-      MYSQL_USER: polluser
-      MYSQL_PASSWORD: pollpassword
-    volumes:
-      - ./mysql_setup/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3307:3306" # Ánh xạ cổng 3306 của container ra cổng 3307 trên máy bạn, giảm khả năng confict khi có mysql chạy trên máy
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  # Service 4: SQL Server Database (dùng để test)
-  sql-server-db:
-    image: mcr.microsoft.com/mssql/server:2019-latest
-    container_name: sql-server-db
-    restart: always 
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "12345678a@"
-      MSSQL_PID: "Developer"
-    ports:
-      - "1434:1433"
-    volumes:
-      - sql_server_data:/var/opt/mssql
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P \"$$SA_PASSWORD\" -Q \"SELECT 1\" || exit 1"]      
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s 
-
-  #   # Service 3: Ứng dụng Polling bằng Python
-  # polling-app:
-  #   build: ./polling_app
-  #   container_name: polling-app
-  #   restart: always
-  #   depends_on:
-  #     rabbitmq:
-  #       condition: service_healthy
-  #     mysql-db:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./polling_app/state:/app/state # Lưu trạng thái polling
-  #   environment:
-  #     # Cấu hình kết nối MySQL
-  #     - MYSQL_HOST=mysql-db
-  #     - MYSQL_USER=polluser
-  #     - MYSQL_PASSWORD=pollpassword
-  #     - MYSQL_DB=productiondb
-  #     - MYSQL_TABLE=steel_production_logs
-  #     # Cấu hình kết nối RabbitMQ
-  #     - RABBITMQ_HOST=rabbitmq
-  #     - RABBITMQ_USER=user
-  #     - RABBITMQ_PASS=password
-  #     - RABBITMQ_EXCHANGE=data_sync_exchange
-  #     # Cấu hình Polling
-  #     - POLLING_INTERVAL_SECONDS=10
-
-  # # Service 5: Ứng dụng Consumer ghi vào SQL Server
-  # consumer-app:
-  #   build: ./consumer_app
-  #   container_name: consumer-app
-  #   restart: always
-  #   depends_on:
-  #     - rabbitmq
-  #     - sql-server-db
-  #   environment:
-  #     # Cấu hình kết nối RabbitMQ
-  #     - RABBITMQ_HOST=rabbitmq
-  #     - RABBITMQ_USER=user
-  #     - RABBITMQ_PASS=password
-  #     - RABBITMQ_EXCHANGE=data_sync_exchange
-  #     # Cấu hình kết nối SQL Server
-  #     - SQL_SERVER_HOST=sql-server-db
-  #     - SQL_SERVER_DB=master 
-  #     - SQL_SERVER_USER=sa
-  #     - SQL_SERVER_PASS=root
-  #     - SQL_SERVER_TABLE=steel_production_logs
-
-# Khai báo volumes để lưu trữ dữ liệu
 volumes:
-  mysql_data:
   rabbitmq_data:
-  sql_server_data:

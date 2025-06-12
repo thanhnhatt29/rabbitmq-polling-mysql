@@ -106,14 +106,33 @@ Luồng hoạt động của dữ liệu từ nguồn đến đích được th�
         * **Password:** `yourStrong(!)Password` (mật khẩu trong `docker-compose.yml`)
     * Chạy script SQL sau để tạo bảng (bạn có thể tùy chỉnh cho phù hợp):
       ```sql
-      CREATE TABLE steel_production_logs (
-          c DECIMAL(10, 4), si DECIMAL(10, 4), mn DECIMAL(10, 4), s DECIMAL(10, 4), p DECIMAL(10, 4),
-          ti DECIMAL(10, 4), temp INT, feo DECIMAL(10, 3), sio2 DECIMAL(10, 3), al2o3 DECIMAL(10, 3),
-          cao DECIMAL(10, 3), mgo DECIMAL(10, 3), r2 DECIMAL(10, 2), na2o DECIMAL(10, 3),
-          k2o DECIMAL(10, 3), tio2 DECIMAL(10, 3), mno DECIMAL(10, 2), hskt DECIMAL(10, 3),
-          classifyname NVARCHAR(100), testpatterncode NVARCHAR(100), testpatternname NVARCHAR(100),
-          productiondate DATE, shiftname NVARCHAR(50), inputtime DATETIME, patterntime NVARCHAR(50)
-      );
+        CREATE TABLE steel_production_logs (
+            [C] DECIMAL(10, 8),
+            [Si] DECIMAL(10, 8),
+            [Mn] DECIMAL(10, 8),
+            [S] DECIMAL(10, 9),
+            [P] DECIMAL(10, 8),
+            [Ti] DECIMAL(10, 8),
+            [Temp] INT,
+            [FeO] DECIMAL(10, 3),
+            [SiO2] DECIMAL(10, 3),
+            [Al2O3] DECIMAL(10, 3),
+            [CaO] DECIMAL(10, 3),
+            [MgO] DECIMAL(10, 3),
+            [R2] DECIMAL(10, 2),
+            [Na2O] DECIMAL(10, 3),
+            [K2O] DECIMAL(10, 3),
+            [TiO2] DECIMAL(10, 3),
+            [MnO] DECIMAL(10, 2),
+            [HSKT] DECIMAL(10, 3),
+            [ClassifyName] NVARCHAR(100),
+            [TestPatternCode] NVARCHAR(100),
+            [TestPatternName] NVARCHAR(100),
+            [ProductionDate] DATE,
+            [ShiftName] NVARCHAR(50),
+            [InputTime] DATETIME,
+            [Patterntime] NVARCHAR(50)
+        );
       ```
 
 4.  **Nạp dữ liệu ban đầu vào MySQL:**

@@ -175,6 +175,8 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-polling_app/poller.py
-consumer_app/consumer.py
-polling_app/state/last_timestamp.txt
+3. polling_app/poller.py
+4. consumer_app/consumer.py
+5. deploy
+state
+.gitignore
