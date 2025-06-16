@@ -15,32 +15,9 @@ Mô hình này giúp tách biệt logic đọc và ghi, tăng tính ổn định
 ## Kiến trúc hệ thống 🏗️
 
 Luồng hoạt động của dữ liệu từ nguồn đến đích được thể hiện qua sơ đồ sau:
-
-```
-+------------------+   1. SELECT * FROM...    +-------------------+
-|                  | <----------------------- |                   |
-|  DATABASE MYSQL  |                          |    POLLING APP    |
-|  (Nguồn dữ liệu)  |   2. Publish JSON Msg    | (Publisher)       |
-|                  | -----------------------> |                   |
-+------------------+                          +-------------------+
-                                                        |
-                                                        v
-+------------------+      3. Route & Queue Msg      +-------------------+
-|                  | <----------------------------- |                   |
-|     RABBITMQ     |                                |   CONSUMER APP    |
-| (Message Broker) |      4. Consume Msg            |  (Subscriber)     |
-|                  | -----------------------------> |                   |
-+------------------+                                +-------------------+
-                                                        |
-                                                        | 5. INSERT INTO...
-                                                        v
-                                                +---------------------+
-                                                |                     |
-                                                |  DATABASE SQL SERVER|
-                                                |    (Đích dữ liệu)   |
-                                                |                     |
-                                                +---------------------+
-```
+<p align="center">
+  <img src="images\flowchart.png">
+</p>
 
 ## Công nghệ sử dụng 🛠️
 
@@ -59,21 +36,16 @@ Luồng hoạt động của dữ liệu từ nguồn đến đích được th�
 
 ```
 .
-├── docker-compose.yml        # File điều phối các container (MySQL, RabbitMQ, Poller, Consumer...)
-├── mock_data/
-│   └── TPHHLC1.xlsx          # File dữ liệu mẫu đầu vào
-├── mysql_setup/
-│   ├── init.sql              # Script khởi tạo user và phân quyền cho MySQL
-│   └── xlsx_to_mysql.py      # Script để nạp dữ liệu từ file Excel vào MySQL
-├── polling_app/
-│   ├── Dockerfile            # Thiết kế image cho ứng dụng Polling (Publisher)
+├── docker-compose.yml        # File điều phối các container (RabbitMQ)
+├── 3. polling_app/
 │   ├── poller.py             # Logic chính của Polling App
-│   └── requirements.txt      # Thư viện Python cho Polling App
-├── consumer_app/
-│   ├── Dockerfile            # Thiết kế image cho ứng dụng Consumer (Subscriber)
+│   ├── requirements.txt      # Thư viện Python cho Polling App
+│   └── state/
+│       └── last_timestamp.txt # File lưu trạng thái lần cuối polling
+├── 4. consumer_app/
 │   ├── consumer.py           # Logic chính của Consumer App
 │   └── requirements.txt      # Thư viện Python cho Consumer App
-└── README.md                 # File hướng dẫn này
+└── README.md                 
 ```
 
 ## Hướng dẫn Cài đặt và Khởi chạy ⚙️
@@ -86,103 +58,78 @@ Luồng hoạt động của dữ liệu từ nguồn đến đích được th�
 #### Các bước cài đặt 🚀
 
 1.  **Clone repository về máy:**
-    ```bash
-    git clone [URL_GITHUB_CUA_BAN]
-    cd [TEN_THU_MUC_DU_AN]
-    ```
+    Clone repository hoặc tải và giải nén mã nguồn vào một thư mục trên máy của bạn.
 
 2.  **Khởi chạy các services nền tảng:**
-    Chạy lệnh sau để khởi động MySQL, RabbitMQ, Polling App và Consumer App.
+    Mở terminal trong thư mục gốc của dự án và chạy lệnh sau để khởi động RabbitMQ.
     ```bash
-    docker-compose up -d --build
+    docker-compose up -d
     ```
-    *Lưu ý: Quá trình khởi động lần đầu có thể mất vài phút, đặc biệt là SQL Server.*
 
-3.  **Chuẩn bị Database Đích (SQL Server):**
-    * Sau khi các container đã chạy, bạn cần kết nối vào SQL Server để tạo bảng sẽ nhận dữ liệu.
-    * Dùng một công cụ quản lý DB (Azure Data Studio, DBeaver, etc.) để kết nối tới:
-        * **Server:** `localhost,1433`
-        * **User:** `sa`
-        * **Password:** `yourStrong(!)Password` (mật khẩu trong `docker-compose.yml`)
-    * Chạy script SQL sau để tạo bảng (bạn có thể tùy chỉnh cho phù hợp):
-      ```sql
-        CREATE TABLE steel_production_logs (
-            [C] DECIMAL(10, 8),
-            [Si] DECIMAL(10, 8),
-            [Mn] DECIMAL(10, 8),
-            [S] DECIMAL(10, 9),
-            [P] DECIMAL(10, 8),
-            [Ti] DECIMAL(10, 8),
-            [Temp] INT,
-            [FeO] DECIMAL(10, 3),
-            [SiO2] DECIMAL(10, 3),
-            [Al2O3] DECIMAL(10, 3),
-            [CaO] DECIMAL(10, 3),
-            [MgO] DECIMAL(10, 3),
-            [R2] DECIMAL(10, 2),
-            [Na2O] DECIMAL(10, 3),
-            [K2O] DECIMAL(10, 3),
-            [TiO2] DECIMAL(10, 3),
-            [MnO] DECIMAL(10, 2),
-            [HSKT] DECIMAL(10, 3),
-            [ClassifyName] NVARCHAR(100),
-            [TestPatternCode] NVARCHAR(100),
-            [TestPatternName] NVARCHAR(100),
-            [ProductionDate] DATE,
-            [ShiftName] NVARCHAR(50),
-            [InputTime] DATETIME,
-            [Patterntime] NVARCHAR(50)
-        );
-      ```
+3.  **Cài đặt thư viện Python:**
+    Mở hai cửa sổ terminal riêng biệt. Trong mỗi cửa sổ, di chuyển vào thư mục tương ứng và cài đặt các gói cần thiết:
 
-4.  **Nạp dữ liệu ban đầu vào MySQL:**
-    Chạy script Python sau từ máy của bạn để đọc file Excel và đẩy dữ liệu vào container MySQL.
-    ```bash
-    python ./mysql_setup/xlsx_to_mysql.py
-    ```
-    *Ngay sau khi chạy xong, `polling-app` sẽ phát hiện dữ liệu mới này và bắt đầu pipeline.*
+    * **Terminal 1 (cho Poller):**
+        ```bash
+        cd polling_app
+        pip install -r requirements.txt
+        ```
+
+    * **Terminal 2 (cho Consumer):**
+        ```bash
+        cd consumer_app
+        pip install -r requirements.txt
+        ```
+
+4.  **Chạy ứng dụng:**
+    Bây giờ, hãy khởi động các script trong hai terminal đã mở:
+
+    * **Trong Terminal 1 (Poller):**
+        ```bash
+        python poller.py
+        ```
+
+    * **Trong Terminal 2 (Consumer):**
+        ```bash
+        python consumer.py
+        ```
+    Hệ thống bây giờ đã hoạt động. `poller.py` sẽ bắt đầu truy vấn MySQL và gửi dữ liệu mới tới RabbitMQ, và `consumer.py` sẽ nhận và ghi chúng vào SQL Server.
+
 
 ## Cách sử dụng và kiểm tra ✅
 
-#### 1. Kiểm tra trạng thái các container 📈
-```bash
-docker-compose ps
-```
-Bạn sẽ thấy các container `rabbitmq`, `polling-app`, `consumer-app`, `sql-server-db` đều đang ở trạng thái `up` hoặc `running (healthy)`.
+#### 1. Xem log của Poller và Consumer 📜
+Khi bạn chạy các script `poller.py` và `consumer.py` thủ công, log hoạt động sẽ được hiển thị trực tiếp trên cửa sổ terminal của chúng.
+* Terminal của **Poller** sẽ hiển thị các thông báo như "Connecting to MySQL...", "Found X new records.", "Published message...".
+* Terminal của **Consumer** sẽ hiển thị các thông báo như "Waiting for messages.", "Received new message.", "Successfully inserted record...".
 
-#### 2. Xem log của Poller và Consumer 📜
-* **Xem Poller gửi tin nhắn:**
-    ```bash
-    docker-compose logs -f polling-app
-    ```
-* **Xem Consumer nhận và ghi tin nhắn:**
-    ```bash
-    docker-compose logs -f consumer-app
-    ```
-
-#### 3. Kiểm tra tin nhắn trong RabbitMQ 🐇
-1.  Mở trình duyệt: `http://localhost:15672`
-2.  Đăng nhập: `user` / `password`.
+#### 2. Kiểm tra tin nhắn trong RabbitMQ 🐇
+1.  Mở trình duyệt và truy cập: `http://localhost:15672`
+2.  Đăng nhập với tài khoản: `user` / `password`.
 3.  Vào tab **Queues**, bạn sẽ thấy `sql_server_writer_queue` đang nhận và xử lý tin nhắn.
 
-#### 4. Kiểm tra dữ liệu trong SQL Server 🎯
-Kết nối lại vào SQL Server và chạy lệnh `SELECT * FROM steel_production_logs;` để xác nhận dữ liệu đã được ghi vào thành công.
+#### 3. Kiểm tra dữ liệu trong SQL Server 🎯
+Kết nối vào SQL Server của bạn bằng một công cụ quản lý DB (như Azure Data Studio, DBeaver). Chạy lệnh sau để xác nhận dữ liệu đã được ghi thành công:
+```sql
+SELECT * FROM steel_production_logs;
+```
+*Lưu ý: Bảng `steel_production_logs` sẽ được tự động tạo bởi `consumer.py` trong lần đầu tiên nhận được tin nhắn nếu nó chưa tồn tại.*
 
 ## Mẹo gỡ lỗi 💡
-File `polling_app/state/last_timestamp.txt` lưu lại thời điểm cuối cùng mà `polling-app` đã làm việc. Nếu bạn muốn `polling-app` đồng bộ lại toàn bộ dữ liệu từ MySQL, chỉ cần **xóa nội dung** trong file này và lưu lại. Ở lần chạy tiếp theo, nó sẽ lấy lại tất cả dữ liệu.
+File `polling_app/state/last_timestamp.txt` lưu lại thời điểm cuối cùng (`InputTime`) mà `polling-app` đã xử lý. Nếu bạn muốn `polling-app` đồng bộ lại toàn bộ dữ liệu từ MySQL, chỉ cần **xóa nội dung** trong file này và lưu lại. Ở lần chạy tiếp theo, nó sẽ truy vấn tất cả dữ liệu từ mốc thời gian '1970-01-01 00:00:00'.
 
 ## Cấu hình 🔧
-Các cấu hình được quản lý qua biến môi trường trong file `docker-compose.yml`:
+Các thông tin kết nối và cấu hình khác được quản lý trực tiếp trong các file Python (`poller.py`, `consumer.py`) dưới dạng biến môi trường hoặc giá trị mặc định. Bạn có thể chỉnh sửa các biến sau cho phù hợp với môi trường của mình:
 
-| Service       | Biến môi trường           | Mô tả                                            |
-|---------------|---------------------------|--------------------------------------------------|
-| `polling-app` | `MYSQL_HOST`              | Host của MySQL nguồn                             |
-| `polling-app` | `MYSQL_USER`              | User của MySQL nguồn                             |
-| `polling-app` | `MYSQL_PASSWORD`          | Password của MySQL nguồn                         |
-| `polling-app` | `RABBITMQ_HOST`           | Host của RabbitMQ                                |
-| `polling-app` | `POLLING_INTERVAL_SECONDS`| Khoảng thời gian nghỉ giữa các lần polling (giây) |
-| `consumer-app`| `RABBITMQ_HOST`           | Host của RabbitMQ                                |
-| `consumer-app`| `SQL_SERVER_HOST`         | Host của SQL Server đích                         |
-| `consumer-app`| `SQL_SERVER_DB`           | Database của SQL Server đích                     |
-| `consumer-app`| `SQL_SERVER_USER`         | User của SQL Server đích                         |
-| `consumer-app`| `SQL_SERVER_PASS`         | Password của SQL Server đích                     |
+| File           | Biến (Ví dụ)         | Mô tả                                        |
+|----------------|----------------------|----------------------------------------------|
+| `poller.py`    | `MYSQL_HOST`         | Host của MySQL nguồn                         |
+| `poller.py`    | `MYSQL_USER`         | User của MySQL nguồn                         |
+| `poller.py`    | `MYSQL_PASS`         | Password của MySQL nguồn                     |
+| `poller.py`    | `RABBITMQ_HOST`      | Host của RabbitMQ                            |
+| `poller.py`    | `POLLING_INTERVAL`   | Khoảng thời gian nghỉ giữa các lần polling  |
+| `consumer.py`  | `RABBITMQ_HOST`      | Host của RabbitMQ                            |
+| `consumer.py`  | `SQL_SERVER_HOST`    | Host của SQL Server đích                     |
+| `consumer.py`  | `SQL_SERVER_DB`      | Database của SQL Server đích                 |
+| `consumer.py`  | `SQL_SERVER_USER`    | User của SQL Server đích                     |
+| `consumer.py`  | `SQL_SERVER_PASS`    | Password của SQL Server đích                 |
