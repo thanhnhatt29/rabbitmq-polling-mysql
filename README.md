@@ -133,3 +133,27 @@ Các thông tin kết nối và cấu hình khác được quản lý trực ti�
 | `consumer.py`  | `SQL_SERVER_DB`      | Database của SQL Server đích                 |
 | `consumer.py`  | `SQL_SERVER_USER`    | User của SQL Server đích                     |
 | `consumer.py`  | `SQL_SERVER_PASS`    | Password của SQL Server đích                 |
+
+
+## Hướng Mở Rộng và Phát Triển 🚀
+
+Kiến trúc hiện tại là một nền tảng vững chắc. Để phát triển hệ thống có thể đồng bộ hóa nhiều bảng hoặc toàn bộ database một cách linh hoạt và mạnh mẽ hơn, ta có thể cân nhắc các hướng cải tiến sau:
+
+### 1. Chuyển sang Cấu hình Động (Config-driven)
+Thay vì hard-code tên bảng và các tham số trong code, hãy sử dụng một file cấu hình tập trung (ví dụ: `config.yaml`). File này sẽ định nghĩa danh sách các bảng cần đồng bộ và các thông tin liên quan (như cột timestamp). Điều này giúp hệ thống trở nên linh hoạt, dễ dàng thêm/bớt bảng mà không cần sửa đổi mã nguồn.
+
+### 2. Nâng cấp Quản lý Trạng thái
+Mở rộng file `state/last_timestamp.txt` thành một file JSON (ví dụ: `state.json`) để lưu `timestamp` cuối cùng cho **từng bảng riêng biệt**. Điều này đảm bảo mỗi luồng đồng bộ hóa của từng bảng được theo dõi một cách độc lập.
+
+### 3. Sử dụng Định tuyến Thông minh trong RabbitMQ
+Chuyển từ `fanout` exchange (gửi cho tất cả) sang **`direct` exchange**.
+* **Poller** sẽ gửi message với `routing_key` là **tên của bảng nguồn**.
+* **Consumer** sẽ lắng nghe trên các `routing_key` tương ứng để biết dữ liệu nhận được thuộc về bảng nào, từ đó ghi vào bảng đích một cách chính xác.
+
+### 4. Container hóa Toàn bộ Ứng dụng
+Tạo `Dockerfile` cho cả `polling_app` và `consumer_app`. Cập nhật file `docker-compose.yml` để khởi chạy toàn bộ hệ thống (Poller, Consumer, RabbitMQ) chỉ bằng một lệnh duy nhất (`docker-compose up -d`). Điều này giúp đơn giản hóa việc triển khai, quản lý và đảm bảo môi trường chạy nhất quán.
+
+### 5. Nâng cấp lên Change Data Capture (CDC)
+Đối với các hệ thống yêu cầu đồng bộ gần như real-time và cần bắt cả sự kiện `UPDATE`, `DELETE` (không chỉ `INSERT`), hãy xem xét chuyển từ mô hình Polling sang **Change Data Capture (CDC)**.
+* **Công cụ gợi ý:** **Debezium**.
+* **Lợi ích:** Debezium đọc trực tiếp từ transaction log (binlog) của MySQL để bắt mọi thay đổi, giúp giảm tải đáng kể cho database nguồn và cung cấp dữ liệu với độ trễ cực thấp.
